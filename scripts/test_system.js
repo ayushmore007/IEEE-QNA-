@@ -1,3 +1,4 @@
+require('dotenv').config({ path: require('path').resolve(__dirname, '../backend/.env') });
 const axios = require('../backend/node_modules/axios');
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
@@ -59,7 +60,7 @@ const tests = [
     fn: async () => {
       try {
         await axios.post(`${BACKEND_URL}/api/auth/login`, {
-          email: 'admin@clusterai.org',
+          email: process.env.ADMIN_EMAIL,
           password: 'WrongPassword999!'
         });
         throw new Error('Expected 401 Unauthorized for invalid credentials');
@@ -75,8 +76,8 @@ const tests = [
     name: '6. Admin Authentication: Successful Login & JWT Token',
     fn: async () => {
       const res = await axios.post(`${BACKEND_URL}/api/auth/login`, {
-        email: 'admin@clusterai.org',
-        password: 'Admin@12345'
+        email: process.env.ADMIN_EMAIL,
+        password: process.env.ADMIN_PASSWORD
       });
       if (!res.data.success || !res.data.token) {
         throw new Error('Failed to retrieve valid JWT token on login');
@@ -89,7 +90,7 @@ const tests = [
     name: '7. Input Validation: Reject Empty Question',
     fn: async () => {
       try {
-        await axios.post(`${BACKEND_URL}/api/questions/submit`, { text: '   ' });
+        await axios.post(`${BACKEND_URL}/api/questions/submit`, { text: '   ', deviceId: require('crypto').randomUUID() });
         throw new Error('Expected 400 for empty question text');
       } catch (err) {
         if (err.response && err.response.status === 400) {
@@ -104,7 +105,8 @@ const tests = [
     fn: async () => {
       const res1 = await axios.post(`${BACKEND_URL}/api/questions/submit`, {
         text: 'How should I start learning DSA and algorithms?',
-        language: 'en'
+        language: 'en',
+        deviceId: require('crypto').randomUUID()
       });
       if (!res1.data.success) throw new Error('Submission 1 failed');
       testClusterId = res1.data.cluster.id;
@@ -113,7 +115,8 @@ const tests = [
       // Submit Marathi equivalent: should join the same cluster!
       const res2 = await axios.post(`${BACKEND_URL}/api/questions/submit`, {
         text: 'मला DSA शिकायला सुरुवात कशी करावी?',
-        language: 'mr'
+        language: 'mr',
+        deviceId: require('crypto').randomUUID()
       });
       if (!res2.data.success) throw new Error('Submission 2 failed');
 

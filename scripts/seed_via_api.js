@@ -1,3 +1,4 @@
+require('dotenv').config({ path: require('path').resolve(__dirname, '../backend/.env') });
 const axios = require('../backend/node_modules/axios');
 
 const API_BASE = 'http://localhost:5000/api';
@@ -57,7 +58,8 @@ async function seedData() {
     try {
       const res = await axios.post(`${API_BASE}/questions/submit`, {
         text: q.text,
-        language: q.lang
+        language: q.lang,
+        deviceId: require('crypto').randomUUID()
       });
       const c = res.data.cluster;
       console.log(`[${i + 1}/${sampleQuestions.length}] (${q.lang}) "${q.text.substring(0, 30)}..." -> ${c.action} to "${c.title}" (Count: ${c.questionCount})`);
@@ -74,8 +76,8 @@ async function seedData() {
 
   // Fetch overview stats
   const loginRes = await axios.post(`${API_BASE}/auth/login`, {
-    email: 'admin@clusterai.org',
-    password: 'Admin@12345'
+    email: process.env.ADMIN_EMAIL,
+    password: process.env.ADMIN_PASSWORD
   });
   const token = loginRes.data.token;
 

@@ -1,7 +1,11 @@
 const jwt = require('jsonwebtoken');
 const Admin = require('../models/Admin');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_multilingual_clustering_key_2026';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || JWT_SECRET.length < 24 || JWT_SECRET.startsWith('CHANGE_ME')) {
+  console.error('FATAL: set JWT_SECRET (24+ random chars) in the environment.');
+  process.exit(1);
+}
 
 const protect = async (req, res, next) => {
   let token = null;
