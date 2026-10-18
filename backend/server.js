@@ -39,6 +39,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/questions', questionRoutes);
 app.use('/api/clusters', clusterRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/settings', require('./routes/settingsRoutes'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

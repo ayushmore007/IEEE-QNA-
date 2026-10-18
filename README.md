@@ -150,8 +150,8 @@ node scripts/test_system.js
 ## 🔑 Default Admin Credentials
 
 - **URL**: `http://localhost:5173` -> Click **Admin Dashboard** in top-right
-- **Email**: `admin@clusterai.org`
-- **Password**: `Admin@12345`
+- **Email**: value of `ADMIN_EMAIL`
+- **Password**: set via `ADMIN_PASSWORD` in `backend/.env` (required; the server refuses to start without a strong one)
 
 *(Configurable via `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `backend/.env`).*
 

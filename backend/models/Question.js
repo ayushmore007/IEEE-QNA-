@@ -43,6 +43,11 @@ const QuestionSchema = new mongoose.Schema(
       default: 'pending',
       index: true
     },
+    deviceId: {
+      type: String,
+      default: null,
+      index: true
+    },
     clientIpHash: {
       type: String,
       default: null

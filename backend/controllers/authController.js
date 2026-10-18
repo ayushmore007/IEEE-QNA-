@@ -76,8 +76,12 @@ const getMe = async (req, res) => {
 
 const seedDefaultAdmin = async () => {
   try {
-    const adminEmail = (process.env.ADMIN_EMAIL || 'admin@clusterai.org').toLowerCase();
-    const adminPassword = process.env.ADMIN_PASSWORD || 'Admin@12345';
+    const adminEmail = (process.env.ADMIN_EMAIL || '').toLowerCase();
+    const adminPassword = process.env.ADMIN_PASSWORD || '';
+    if (!adminEmail || adminPassword.length < 10 || adminPassword.startsWith('CHANGE_ME') || adminPassword === 'Admin@12345') {
+      console.error('FATAL: set ADMIN_EMAIL and a strong ADMIN_PASSWORD (10+ chars, not the old default) in the environment.');
+      process.exit(1);
+    }
 
     const existingAdmin = await Admin.findOne({ email: adminEmail });
     if (!existingAdmin) {
@@ -88,7 +92,7 @@ const seedDefaultAdmin = async () => {
         role: 'superadmin'
       });
       await admin.save();
-      console.log(`[Seed] Initialized default admin account: ${adminEmail} (password: ${adminPassword})`);
+      console.log(`[Seed] Initialized default admin account: ${adminEmail}`);
     }
   } catch (err) {
     console.error('[Seed Error] Failed to seed default admin:', err.message);

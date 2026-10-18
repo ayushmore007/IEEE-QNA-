@@ -3,6 +3,10 @@ const Question = require('../models/Question');
 const Cluster = require('../models/Cluster');
 const aiService = require('../services/aiService');
 const clusterEngine = require('../services/clusterEngine');
+const { isSubmissionsOpen, MAX_QUESTIONS_PER_DEVICE } = require('./settingsController');
+
+// Devices with a submission currently in flight (blocks double-tap races past the limit)
+const inFlightDevices = new Set();
 
 // In-memory cache for fast duplicate submission debouncing (15 seconds)
 const recentSubmissionsCache = new Map();
@@ -13,7 +17,26 @@ const hashClient = (ip, text) => {
 
 const submitQuestion = async (req, res) => {
   try {
-    const { text, language = 'auto' } = req.body;
+    const { text, language = 'auto', deviceId } = req.body;
+
+    if (!deviceId || typeof deviceId !== 'string' || deviceId.length < 8 || deviceId.length > 64) {
+      return res.status(400).json({ success: false, message: 'Invalid device. Please refresh the page.' });
+    }
+
+    if (!(await isSubmissionsOpen())) {
+      return res.status(403).json({ success: false, closed: true, message: 'Submissions are closed.' });
+    }
+
+    if (inFlightDevices.has(deviceId)) {
+      return res.status(429).json({ success: false, message: 'Please wait for your previous question to finish.' });
+    }
+    const used = await Question.countDocuments({ deviceId });
+    if (used >= MAX_QUESTIONS_PER_DEVICE) {
+      return res.status(403).json({ success: false, limitReached: true, message: `You have already asked ${MAX_QUESTIONS_PER_DEVICE} questions.` });
+    }
+    inFlightDevices.add(deviceId);
+    res.on('finish', () => inFlightDevices.delete(deviceId));
+    res.on('close', () => inFlightDevices.delete(deviceId));
 
     if (!text || typeof text !== 'string' || text.trim().length < 5) {
       return res.status(400).json({
@@ -70,7 +93,8 @@ const submitQuestion = async (req, res) => {
         language: language || 'auto',
         detectedLanguage,
         processingStatus: 'pending',
-        clientIpHash: crypto.createHash('sha256').update(clientIp).digest('hex')
+        deviceId,
+      clientIpHash: crypto.createHash('sha256').update(clientIp).digest('hex')
       });
       await pendingQuestion.save();
 
@@ -97,6 +121,7 @@ const submitQuestion = async (req, res) => {
       detectedLanguage,
       embedding,
       processingStatus: 'pending',
+      deviceId,
       clientIpHash: crypto.createHash('sha256').update(clientIp).digest('hex')
     });
 
@@ -106,6 +131,8 @@ const submitQuestion = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: 'Question submitted and clustered successfully!',
+      used: used + 1,
+      max: MAX_QUESTIONS_PER_DEVICE,
       question: {
         id: questionDoc._id,
         questionId: questionDoc.questionId,

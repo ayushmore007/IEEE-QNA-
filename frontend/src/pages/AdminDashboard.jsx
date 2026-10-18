@@ -31,7 +31,7 @@ import {
   Line,
   CartesianGrid
 } from 'recharts';
-import { statsAPI, clusterAPI, questionAPI } from '../services/api';
+import { statsAPI, clusterAPI, questionAPI, settingsAPI } from '../services/api';
 import ClusterDetailsModal from '../components/ClusterDetailsModal';
 import EditClusterModal from '../components/EditClusterModal';
 import MergeClusterModal from '../components/MergeClusterModal';
@@ -72,6 +72,22 @@ const AdminDashboard = ({ onOpenQR, onOpenReclusterTrigger }) => {
   const [clusterToMerge, setClusterToMerge] = useState(null);
   const [questionToMove, setQuestionToMove] = useState(null);
   const [isReclusterOpen, setIsReclusterOpen] = useState(false);
+  const [submissionsOpen, setSubmissionsOpen] = useState(true);
+
+  useEffect(() => {
+    settingsAPI.getStatus().then((r) => setSubmissionsOpen(r.data.open)).catch(() => {});
+  }, []);
+
+  const toggleSubmissions = async () => {
+    const next = !submissionsOpen;
+    if (!next && !window.confirm('Close submissions? Attendees will no longer be able to ask questions.')) return;
+    try {
+      await settingsAPI.setSubmissionsOpen(next);
+      setSubmissionsOpen(next);
+    } catch {
+      window.alert('Failed to update submissions status.');
+    }
+  };
 
   useEffect(() => {
     loadAllData();
@@ -195,6 +211,12 @@ const AdminDashboard = ({ onOpenQR, onOpenReclusterTrigger }) => {
 
         {/* AI Model Status Badge */}
         <div className="flex items-center space-x-2">
+          <button
+            onClick={toggleSubmissions}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold border cursor-pointer ${submissionsOpen ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100' : 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'}`}
+          >
+            {submissionsOpen ? 'Close submissions' : 'Reopen submissions'}
+          </button>
           <div className="flex items-center px-3 py-1.5 rounded-xl bg-teal-50 border border-teal-200 text-teal-800 text-xs font-semibold">
             <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse mr-2"></span>
             <span>AI Model: paraphrase-multilingual-MiniLM</span>

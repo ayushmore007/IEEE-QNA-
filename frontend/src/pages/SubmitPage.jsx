@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Send, Check, Shield, Calendar, MapPin, Plus, AlertCircle, Menu, X, Maximize2 } from 'lucide-react';
-import { questionAPI } from '../services/api';
+import { questionAPI, settingsAPI } from '../services/api';
 import Checkerboard from '../components/TechUncutCheckerboard';
 import loveBabbarImg from '../assets/love_babbar.png';
 import loveBabbarFullImg from '../assets/love_babbar_full.png';
@@ -11,15 +11,45 @@ const exampleChips = [
   { label: 'Career advice', text: 'How to prepare for software engineering off-campus tech placements and interviews?' }
 ];
 
+const getDeviceId = () => {
+  try {
+    let id = localStorage.getItem('qna_device_id');
+    if (!id) {
+      id = crypto.randomUUID ? crypto.randomUUID() : `d${Date.now()}${Math.random().toString(36).slice(2)}`;
+      localStorage.setItem('qna_device_id', id);
+    }
+    return id;
+  } catch {
+    return `d${Date.now()}${Math.random().toString(36).slice(2)}`;
+  }
+};
+const getStoredUsed = () => {
+  try { return parseInt(localStorage.getItem('qna_used')) || 0; } catch { return 0; }
+};
+
 const topicPills = ['DSA', 'Web Dev', 'Careers'];
 
 const SubmitPage = ({ onNavigateToAdmin }) => {
   const [questionText, setQuestionText] = useState('');
+  const [used, setUsed] = useState(getStoredUsed);
+  const [max, setMax] = useState(5);
+  const [closed, setClosed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showPosterModal, setShowPosterModal] = useState(false);
+
+  useEffect(() => {
+    settingsAPI.getStatus()
+      .then((r) => { setClosed(!r.data.open); setMax(r.data.max); })
+      .catch(() => {});
+  }, []);
+
+  const saveUsed = (n) => {
+    setUsed(n);
+    try { localStorage.setItem('qna_used', String(n)); } catch { /* ignore */ }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -36,15 +66,22 @@ const SubmitPage = ({ onNavigateToAdmin }) => {
       // Automatic language detection handled seamlessly by the backend AI pipeline
       const res = await questionAPI.submit({
         text: trimmed,
-        language: 'auto'
+        language: 'auto',
+        deviceId: getDeviceId()
       });
 
       if (res.data.success) {
+        saveUsed(res.data.used);
+        setMax(res.data.max);
         setSubmitted(true);
         setQuestionText('');
       }
     } catch (err) {
-      if (err.response?.data?.isDuplicate) {
+      if (err.response?.data?.limitReached) {
+        saveUsed(max);
+      } else if (err.response?.data?.closed) {
+        setClosed(true);
+      } else if (err.response?.data?.isDuplicate) {
         setErrorMsg('This question was just submitted a moment ago. Topic count has been updated!');
       } else if (err.response?.data?.aiOffline) {
         setErrorMsg(err.response.data.message);
@@ -141,7 +178,16 @@ const SubmitPage = ({ onNavigateToAdmin }) => {
 
         {/* Main Content Area */}
         <main className="w-full flex-1 flex flex-col justify-start relative z-10 space-y-3.5">
-          {!submitted ? (
+          {(closed || (used >= max && !submitted)) ? (
+            <div className="bg-white rounded-2xl border border-[#D8E6FF] p-6 text-center space-y-2 mt-6">
+              <h2 className="text-xl font-extrabold text-[#102A56]">
+                {closed ? 'Submissions are closed.' : 'Thanks, all done!'}
+              </h2>
+              <p className="text-sm text-slate-600">
+                {closed ? 'Thank you for taking part in Tech Uncut.' : `You have asked all ${max} of your questions.`}
+              </p>
+            </div>
+          ) : !submitted ? (
             /* ==================================================== */
             /* SCREEN 1: QUESTION SUBMISSION SCREEN                */
             /* ==================================================== */
@@ -196,6 +242,7 @@ const SubmitPage = ({ onNavigateToAdmin }) => {
                 <h1 className="text-xl sm:text-2xl font-extrabold text-[#102A56] tracking-tight">
                   Ask your question
                 </h1>
+                <p className="text-xs font-semibold text-[#0866FF] mt-0.5">Question {used + 1} of {max}</p>
                 <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
                   Have a doubt? Ask it here! Your question could be answered live.
                 </p>
@@ -303,7 +350,7 @@ const SubmitPage = ({ onNavigateToAdmin }) => {
               {/* Heading and Subtext */}
               <div className="space-y-1">
                 <h2 className="text-2xl font-extrabold text-[#102A56] tracking-tight">
-                  Question submitted!
+                  {used >= max ? 'Thanks, all done!' : 'Question submitted!'}
                 </h2>
                 <p className="text-xs sm:text-sm text-slate-600">
                   Thanks for being part of Tech Uncut
@@ -328,7 +375,7 @@ const SubmitPage = ({ onNavigateToAdmin }) => {
               </div>
 
               {/* Ask Another Question Button */}
-              <div className="w-full pt-1">
+              {used < max && (<div className="w-full pt-1">
                 <button
                   onClick={handleAskAnother}
                   className="w-full py-3.5 px-4 rounded-2xl font-bold text-white bg-[#0866FF] hover:bg-[#0055D6] active:scale-[0.99] shadow-md shadow-[#0866FF]/20 flex items-center justify-center space-x-2 transition-all text-sm sm:text-base cursor-pointer"
@@ -336,7 +383,7 @@ const SubmitPage = ({ onNavigateToAdmin }) => {
                   <Plus className="w-4 h-4" />
                   <span>Ask another question</span>
                 </button>
-              </div>
+              </div>)}
 
               {/* Anonymous notice */}
               <div className="flex items-center justify-center text-[11px] text-slate-500 space-x-1.5 pt-0.5">

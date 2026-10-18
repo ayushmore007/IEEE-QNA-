@@ -50,6 +50,11 @@ export const clusterAPI = {
   getExportUrl: () => '/api/clusters/export/csv'
 };
 
+export const settingsAPI = {
+  getStatus: () => api.get('/settings/status'),
+  setSubmissionsOpen: (open) => api.post('/settings/submissions', { open })
+};
+
 export const statsAPI = {
   getOverview: () => api.get('/stats/overview'),
   getQRCode: () => api.get('/stats/qr')
